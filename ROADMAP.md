@@ -2,11 +2,11 @@
 
 ## v0.1
 
-- [ ] Pick the opener for macOS, Linux, Windows and WSL
-- [ ] Normalize targets: paths, `file://` URLs, other URLs
-- [ ] `--with APP` to open in a specific application
-- [ ] `--reveal` to show a file in the file manager
-- [ ] `--dry-run` and several targets in one call
+- [x] Pick the opener for macOS, Linux, Windows and WSL
+- [x] Normalize targets: paths, `file://` URLs, other URLs
+- [x] `--with APP` to open in a specific application
+- [x] `--reveal` to show a file in the file manager
+- [x] `--dry-run` and several targets in one call
 
 ## After v0.1 (about 32 hours)
 
