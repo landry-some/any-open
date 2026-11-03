@@ -1,8 +1,10 @@
 import sys
 import time
 
+import pytest
+
 from any_open.cli import main, run
-from any_open.detect import LINUX, MACOS
+from any_open.detect import LINUX, MACOS, WINDOWS
 from any_open.plan import Command
 
 
@@ -81,3 +83,24 @@ def test_detached_run_does_not_wait(tmp_path):
             break
         time.sleep(0.05)
     assert marker.read_text() == "ok"
+
+
+def test_reveal_ignores_explorer_exit_code(tmp_path):
+    (tmp_path / "a.txt").write_text("x")
+    rec = Recorder(code=1)
+    code = main(["--reveal", "a.txt"], runner=rec, platform=WINDOWS, which=which_only(), cwd=str(tmp_path))
+    assert code == 0
+    assert rec.calls[0][0] == "explorer"
+
+
+def test_reveal_url_is_reported(capsys):
+    rec = Recorder()
+    assert main(["-r", "https://example.com"], runner=rec, platform=MACOS, which=which_only()) == 1
+    assert "can't reveal a URL" in capsys.readouterr().err
+
+
+def test_reveal_and_with_conflict(capsys):
+    with pytest.raises(SystemExit) as exc:
+        main(["-r", "-w", "X", "https://example.com"], runner=Recorder(), platform=MACOS, which=which_only())
+    assert exc.value.code == 2
+    assert "not allowed with" in capsys.readouterr().err

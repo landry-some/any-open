@@ -1,7 +1,7 @@
 import pytest
 
 from any_open.detect import LINUX, MACOS, WINDOWS, WSL
-from any_open.plan import NoOpenerError, build_command, resolve_opener
+from any_open.plan import NoOpenerError, PlanError, build_command, resolve_opener
 from any_open.target import Target
 
 
@@ -95,3 +95,43 @@ def test_with_app_wsl_translates_path():
 def test_with_app_wsl_keeps_url():
     cmd = build_command(WSL, URL, which_only(), fake_winpath, app="msedge")
     assert cmd.argv[-1] == URL.value
+
+
+def test_reveal_macos():
+    assert build_command(MACOS, path("/tmp/a.txt"), which_only(), reveal=True).argv == ["open", "-R", "/tmp/a.txt"]
+
+
+def test_reveal_windows_selects_file_and_ignores_exit():
+    cmd = build_command(WINDOWS, path("C:\\dir\\a.txt"), which_only(), reveal=True)
+    assert cmd.argv == ["explorer", "/select,C:\\dir\\a.txt"]
+    assert cmd.ignore_exit
+
+
+def test_reveal_wsl_uses_windows_path():
+    cmd = build_command(WSL, path("/home/me/a.txt"), which_only("wslview"), fake_winpath, reveal=True)
+    assert cmd.argv == ["explorer.exe", "/select,\\\\wsl.localhost\\Ubuntu\\home\\me\\a.txt"]
+    assert cmd.ignore_exit
+
+
+def test_reveal_linux_opens_parent_folder():
+    cmd = build_command(LINUX, path("/home/me/a.txt"), which_only("xdg-open"), reveal=True)
+    assert cmd.argv == ["xdg-open", "/home/me"]
+
+
+def test_reveal_linux_folder_opens_its_parent():
+    cmd = build_command(LINUX, path("/home/me/"), which_only("gio"), reveal=True)
+    assert cmd.argv == ["gio", "open", "/home"]
+
+
+def test_reveal_linux_root():
+    assert build_command(LINUX, path("/"), which_only("xdg-open"), reveal=True).argv == ["xdg-open", "/"]
+
+
+def test_reveal_url_is_an_error():
+    with pytest.raises(PlanError, match="can't reveal a URL"):
+        build_command(MACOS, URL, which_only(), reveal=True)
+
+
+def test_reveal_with_app_is_an_error():
+    with pytest.raises(PlanError):
+        build_command(MACOS, path("/tmp/a"), which_only(), app="X", reveal=True)
