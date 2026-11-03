@@ -13,7 +13,11 @@ from .target import TargetError, normalize
 
 
 def wslpath(path):
-    out = subprocess.run(["wslpath", "-w", path], capture_output=True, text=True, check=True)
+    """Convert a Linux path to a Windows one with WSL's wslpath tool."""
+    try:
+        out = subprocess.run(["wslpath", "-w", path], capture_output=True, text=True, check=True)
+    except (OSError, subprocess.CalledProcessError) as e:
+        raise PlanError(f"wslpath could not convert {path}: {e}") from e
     return out.stdout.strip()
 
 

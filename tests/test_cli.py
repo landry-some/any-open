@@ -4,7 +4,7 @@ import time
 import pytest
 
 from any_open.cli import main, run
-from any_open.detect import LINUX, MACOS, WINDOWS
+from any_open.detect import LINUX, MACOS, WINDOWS, WSL
 from any_open.plan import Command
 
 
@@ -154,3 +154,16 @@ def test_no_targets_is_a_usage_error():
     with pytest.raises(SystemExit) as exc:
         main([], runner=Recorder(), platform=MACOS, which=which_only())
     assert exc.value.code == 2
+
+
+def test_wslpath_failure_is_reported(tmp_path, capsys, monkeypatch):
+    from any_open import cli
+
+    def no_wslpath(*a, **k):
+        raise FileNotFoundError(2, "No such file or directory", "wslpath")
+
+    monkeypatch.setattr(cli.subprocess, "run", no_wslpath)
+    (tmp_path / "a").write_text("x")
+    code = main(["a"], runner=Recorder(), platform=WSL, which=which_only(), cwd=str(tmp_path))
+    assert code == 1
+    assert "wslpath could not convert" in capsys.readouterr().err
