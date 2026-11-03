@@ -1,12 +1,13 @@
 """Command-line entry point for anyopen."""
 
 import argparse
+import shlex
 import shutil
 import subprocess
 import sys
 
 from . import __version__
-from .detect import detect_platform
+from .detect import WINDOWS, detect_platform
 from .plan import PlanError, build_command
 from .target import TargetError, normalize
 
@@ -33,9 +34,9 @@ def run(command):
 def make_parser():
     p = argparse.ArgumentParser(
         prog="anyopen",
-        description="Open a file, folder or URL in its default application.",
+        description="Open files, folders and URLs in their default application.",
     )
-    p.add_argument("target", help="file, folder or URL to open")
+    p.add_argument("targets", nargs="+", metavar="TARGET", help="file, folder or URL to open")
     how = p.add_mutually_exclusive_group()
     how.add_argument(
         "-w", "--with", dest="app", metavar="APP",
@@ -45,26 +46,52 @@ def make_parser():
         "-r", "--reveal", action="store_true",
         help="show the target in the file manager instead of opening it",
     )
+    p.add_argument(
+        "-n", "--dry-run", action="store_true",
+        help="print the command for each target instead of running it",
+    )
     p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     return p
+
+
+def format_command(command, platform):
+    if platform == WINDOWS:
+        return subprocess.list2cmdline(command.argv)
+    return shlex.join(command.argv)
+
+
+def open_one(raw, args, platform, runner, which, winpath, cwd):
+    """Open one target. Return True if it worked."""
+    try:
+        target = normalize(raw, cwd=cwd)
+        command = build_command(platform, target, which, winpath, app=args.app, reveal=args.reveal)
+    except (PlanError, TargetError) as e:
+        print(f"anyopen: {e}", file=sys.stderr)
+        return False
+    if args.dry_run:
+        print(format_command(command, platform))
+        return True
+    try:
+        code = runner(command)
+    except OSError as e:
+        print(f"anyopen: could not run {command.argv[0]}: {e}", file=sys.stderr)
+        return False
+    if code != 0 and not command.ignore_exit:
+        print(f"anyopen: {command.argv[0]} exited with {code} for {raw}", file=sys.stderr)
+        return False
+    return True
 
 
 def main(argv=None, runner=run, platform=None, which=shutil.which, winpath=wslpath, cwd=None):
     args = make_parser().parse_args(argv)
     if platform is None:
         platform = detect_platform()
-    try:
-        target = normalize(args.target, cwd=cwd)
-        command = build_command(platform, target, which, winpath, app=args.app, reveal=args.reveal)
-    except (PlanError, TargetError) as e:
-        print(f"anyopen: {e}", file=sys.stderr)
-        return 1
-    try:
-        code = runner(command)
-    except OSError as e:
-        print(f"anyopen: could not run {command.argv[0]}: {e}", file=sys.stderr)
-        return 1
-    return 0 if code == 0 or command.ignore_exit else 1
+    ok = True
+    for raw in args.targets:
+        # Keep going after a failure so one bad target doesn't block the rest.
+        if not open_one(raw, args, platform, runner, which, winpath, cwd):
+            ok = False
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":

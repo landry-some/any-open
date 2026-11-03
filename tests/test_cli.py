@@ -104,3 +104,53 @@ def test_reveal_and_with_conflict(capsys):
         main(["-r", "-w", "X", "https://example.com"], runner=Recorder(), platform=MACOS, which=which_only())
     assert exc.value.code == 2
     assert "not allowed with" in capsys.readouterr().err
+
+
+def test_several_targets_open_in_order(tmp_path):
+    (tmp_path / "a").write_text("x")
+    rec = Recorder()
+    code = main(["a", "https://example.com"], runner=rec, platform=MACOS, which=which_only(), cwd=str(tmp_path))
+    assert code == 0
+    assert rec.calls == [["open", str(tmp_path / "a")], ["open", "https://example.com"]]
+
+
+def test_bad_target_does_not_stop_the_others(tmp_path, capsys):
+    rec = Recorder()
+    code = main(["missing", "https://example.com"], runner=rec, platform=MACOS, which=which_only(), cwd=str(tmp_path))
+    assert code == 1
+    assert rec.calls == [["open", "https://example.com"]]
+    assert "missing" in capsys.readouterr().err
+
+
+def test_failed_opener_names_the_target(capsys):
+    rec = Recorder(code=3)
+    assert main(["https://example.com"], runner=rec, platform=MACOS, which=which_only()) == 1
+    assert "open exited with 3 for https://example.com" in capsys.readouterr().err
+
+
+def test_dry_run_prints_and_runs_nothing(tmp_path, capsys):
+    (tmp_path / "my file.txt").write_text("x")
+    rec = Recorder()
+    code = main(["-n", "my file.txt", "https://example.com"], runner=rec, platform=MACOS,
+                which=which_only(), cwd=str(tmp_path))
+    assert code == 0
+    assert rec.calls == []
+    out = capsys.readouterr().out.splitlines()
+    assert out == [f"open '{tmp_path / 'my file.txt'}'", "open https://example.com"]
+
+
+def test_dry_run_uses_windows_quoting(capsys):
+    assert main(["--dry-run", "https://example.com/a b"], runner=Recorder(), platform=WINDOWS,
+                which=which_only()) == 0
+    assert capsys.readouterr().out.strip() == 'cmd /c start "" "https://example.com/a b"'
+
+
+def test_dry_run_still_reports_bad_targets(tmp_path, capsys):
+    assert main(["-n", "nope"], runner=Recorder(), platform=MACOS, which=which_only(), cwd=str(tmp_path)) == 1
+    assert "no such file or folder" in capsys.readouterr().err
+
+
+def test_no_targets_is_a_usage_error():
+    with pytest.raises(SystemExit) as exc:
+        main([], runner=Recorder(), platform=MACOS, which=which_only())
+    assert exc.value.code == 2
