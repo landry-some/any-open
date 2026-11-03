@@ -8,6 +8,7 @@ import sys
 from . import __version__
 from .detect import detect_platform
 from .plan import NoOpenerError, build_command
+from .target import TargetError, normalize
 
 
 def wslpath(path):
@@ -30,13 +31,14 @@ def make_parser():
     return p
 
 
-def main(argv=None, runner=run, platform=None, which=shutil.which, winpath=wslpath):
+def main(argv=None, runner=run, platform=None, which=shutil.which, winpath=wslpath, cwd=None):
     args = make_parser().parse_args(argv)
     if platform is None:
         platform = detect_platform()
     try:
-        command = build_command(platform, args.target, which, winpath)
-    except NoOpenerError as e:
+        target = normalize(args.target, cwd=cwd)
+        command = build_command(platform, target, which, winpath)
+    except (NoOpenerError, TargetError) as e:
         print(f"anyopen: {e}", file=sys.stderr)
         return 1
     try:
