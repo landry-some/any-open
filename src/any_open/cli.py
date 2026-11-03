@@ -18,6 +18,15 @@ def wslpath(path):
 
 def run(command):
     """Run a Command and return its exit code."""
+    if command.detach:
+        subprocess.Popen(
+            command.argv,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        return 0
     return subprocess.run(command.argv).returncode
 
 
@@ -27,6 +36,10 @@ def make_parser():
         description="Open a file, folder or URL in its default application.",
     )
     p.add_argument("target", help="file, folder or URL to open")
+    p.add_argument(
+        "-w", "--with", dest="app", metavar="APP",
+        help="open in APP instead of the default application",
+    )
     p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     return p
 
@@ -37,7 +50,7 @@ def main(argv=None, runner=run, platform=None, which=shutil.which, winpath=wslpa
         platform = detect_platform()
     try:
         target = normalize(args.target, cwd=cwd)
-        command = build_command(platform, target, which, winpath)
+        command = build_command(platform, target, which, winpath, app=args.app)
     except (NoOpenerError, TargetError) as e:
         print(f"anyopen: {e}", file=sys.stderr)
         return 1

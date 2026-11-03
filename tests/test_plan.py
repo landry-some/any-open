@@ -58,3 +58,40 @@ def test_wsl_explorer_passes_urls_untouched():
 def test_unknown_platform():
     with pytest.raises(ValueError):
         resolve_opener("plan9", which_only())
+
+
+URL = Target("https://example.com", is_url=True)
+
+
+def test_with_app_macos():
+    cmd = build_command(MACOS, path("/tmp/a.txt"), which_only(), app="TextEdit")
+    assert cmd.argv == ["open", "-a", "TextEdit", "/tmp/a.txt"]
+    assert not cmd.detach
+
+
+def test_with_app_windows():
+    cmd = build_command(WINDOWS, path("C:\\a.txt"), which_only(), app="notepad")
+    assert cmd.argv == ["cmd", "/c", "start", "", "notepad", "C:\\a.txt"]
+
+
+def test_with_app_linux_launches_directly_and_detaches():
+    cmd = build_command(LINUX, path("/tmp/a.txt"), which_only(), app="gedit")
+    assert cmd.argv == ["gedit", "/tmp/a.txt"]
+    assert cmd.detach
+
+
+def test_with_app_linux_needs_no_opener():
+    # Direct launch works even when xdg-open and gio are missing.
+    assert build_command(LINUX, URL, which_only(), app="firefox").argv == ["firefox", URL.value]
+
+
+def test_with_app_wsl_translates_path():
+    cmd = build_command(WSL, path("/home/me/a.txt"), which_only("wslview"), fake_winpath, app="notepad.exe")
+    assert cmd.argv == [
+        "cmd.exe", "/c", "start", "", "notepad.exe", "\\\\wsl.localhost\\Ubuntu\\home\\me\\a.txt",
+    ]
+
+
+def test_with_app_wsl_keeps_url():
+    cmd = build_command(WSL, URL, which_only(), fake_winpath, app="msedge")
+    assert cmd.argv[-1] == URL.value

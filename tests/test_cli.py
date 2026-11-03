@@ -1,5 +1,9 @@
-from any_open.cli import main
+import sys
+import time
+
+from any_open.cli import main, run
 from any_open.detect import LINUX, MACOS
+from any_open.plan import Command
 
 
 def which_only(*names):
@@ -56,3 +60,24 @@ def test_unrunnable_opener_is_reported(capsys):
 
     assert main(["https://example.com"], runner=boom, platform=MACOS, which=which_only()) == 1
     assert "could not run open" in capsys.readouterr().err
+
+
+def test_with_option(tmp_path):
+    (tmp_path / "a.md").write_text("x")
+    rec = Recorder()
+    code = main(["--with", "Typora", "a.md"], runner=rec, platform=MACOS, which=which_only(), cwd=str(tmp_path))
+    assert code == 0
+    assert rec.calls == [["open", "-a", "Typora", str(tmp_path / "a.md")]]
+
+
+def test_detached_run_does_not_wait(tmp_path):
+    marker = tmp_path / "started"
+    script = f"import pathlib, time; pathlib.Path({str(marker)!r}).write_text('ok'); time.sleep(3)"
+    start = time.monotonic()
+    assert run(Command([sys.executable, "-c", script], detach=True)) == 0
+    assert time.monotonic() - start < 2
+    for _ in range(50):
+        if marker.exists():
+            break
+        time.sleep(0.05)
+    assert marker.read_text() == "ok"

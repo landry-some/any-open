@@ -12,6 +12,9 @@ class NoOpenerError(Exception):
 @dataclass(frozen=True)
 class Command:
     argv: list
+    # Launch without waiting. Used when we start a GUI app directly, which
+    # would otherwise keep the terminal busy until it closes.
+    detach: bool = False
 
 
 def resolve_opener(platform, which):
@@ -39,14 +42,38 @@ def resolve_opener(platform, which):
     raise ValueError(f"unknown platform: {platform}")
 
 
-def build_command(platform, target, which, winpath=None):
+def _windows_value(target, winpath):
+    if target.is_url or winpath is None:
+        return target.value
+    return winpath(target.value)
+
+
+def build_command(platform, target, which, winpath=None, app=None):
     """Build the Command that opens `target` (a Target) on `platform`.
 
-    On WSL, explorer.exe needs a Windows path; `winpath` converts a Linux path
-    to one (normally by calling `wslpath -w`). URLs are passed as they are.
+    With `app`, the target is opened in that application instead of the
+    default one. On WSL, Windows programs need a Windows path; `winpath`
+    converts a Linux path to one (normally by calling `wslpath -w`). URLs are
+    passed as they are.
     """
+    if app is not None:
+        return _build_with_app(platform, target, app, winpath)
+
     opener = resolve_opener(platform, which)
     value = target.value
-    if opener == ["explorer.exe"] and not target.is_url and winpath is not None:
-        value = winpath(value)
+    if opener == ["explorer.exe"]:
+        value = _windows_value(target, winpath)
     return Command(opener + [value])
+
+
+def _build_with_app(platform, target, app, winpath):
+    if platform == MACOS:
+        return Command(["open", "-a", app, target.value])
+    if platform == WINDOWS:
+        return Command(["cmd", "/c", "start", "", app, target.value])
+    if platform == WSL:
+        # Assume a Windows app: Linux apps can be run directly without anyopen.
+        return Command(["cmd.exe", "/c", "start", "", app, _windows_value(target, winpath)])
+    if platform == LINUX:
+        return Command([app, target.value], detach=True)
+    raise ValueError(f"unknown platform: {platform}")
