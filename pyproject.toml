@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "any-open"
+version = "0.1.0"
+description = "One command to open files, folders and URLs on macOS, Linux, Windows and WSL"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [{ name = "landry-some" }]
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[project.scripts]
+anyopen = "any_open.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
