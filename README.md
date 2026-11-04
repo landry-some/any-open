@@ -28,6 +28,7 @@ anyopen . https://example.com        # several targets, opened in order
 anyopen --with gedit notes.txt       # open in a chosen app (-w)
 anyopen --reveal ~/Downloads/a.pdf   # show it in the file manager (-r)
 anyopen --dry-run report.pdf         # print the command, run nothing (-n)
+ls *.pdf | anyopen -                 # read targets from stdin, one per line
 ```
 
 Paths are expanded (`~`) and made absolute, and must exist. `file://` URLs are turned
@@ -36,6 +37,9 @@ is passed to the opener as it is. A bare domain such as `example.com` or
 `github.com/landry-some` is opened as `https://...` when no file or folder of that
 name exists (only for common endings like `.com`, `.org`, `.io`, `.dev`, `.uk`, so a
 missing `notes.txt` is still reported as missing).
+
+A `-` target reads more targets from stdin, one per line; blank lines are skipped.
+Use `./-` to open a file that is really called `-`.
 
 If one target fails, the others are still opened and `anyopen` exits with 1.
 `--with` and `--reveal` can't be combined.

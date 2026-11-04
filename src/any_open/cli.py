@@ -40,7 +40,10 @@ def make_parser():
         prog="anyopen",
         description="Open files, folders and URLs in their default application.",
     )
-    p.add_argument("targets", nargs="+", metavar="TARGET", help="file, folder or URL to open")
+    p.add_argument(
+        "targets", nargs="+", metavar="TARGET",
+        help="file, folder or URL to open; - reads targets from stdin, one per line",
+    )
     how = p.add_mutually_exclusive_group()
     how.add_argument(
         "-w", "--with", dest="app", metavar="APP",
@@ -86,12 +89,24 @@ def open_one(raw, args, platform, runner, which, winpath, cwd):
     return True
 
 
+def expand_stdin(targets, stdin):
+    """Replace each "-" in `targets` with the non-blank lines read from `stdin`."""
+    out = []
+    for raw in targets:
+        if raw == "-":
+            # Only strip the line ending: names may start or end with spaces.
+            out.extend(line.rstrip("\r\n") for line in stdin if line.strip())
+        else:
+            out.append(raw)
+    return out
+
+
 def main(argv=None, runner=run, platform=None, which=shutil.which, winpath=wslpath, cwd=None):
     args = make_parser().parse_args(argv)
     if platform is None:
         platform = detect_platform()
     ok = True
-    for raw in args.targets:
+    for raw in expand_stdin(args.targets, sys.stdin):
         # Keep going after a failure so one bad target doesn't block the rest.
         if not open_one(raw, args, platform, runner, which, winpath, cwd):
             ok = False

@@ -1,3 +1,4 @@
+import io
 import sys
 import time
 
@@ -167,3 +168,26 @@ def test_wslpath_failure_is_reported(tmp_path, capsys, monkeypatch):
     code = main(["a"], runner=Recorder(), platform=WSL, which=which_only(), cwd=str(tmp_path))
     assert code == 1
     assert "wslpath could not convert" in capsys.readouterr().err
+
+
+def test_dash_reads_targets_from_stdin(tmp_path, monkeypatch):
+    (tmp_path / "a b.txt").write_text("x")
+    monkeypatch.setattr(sys, "stdin", io.StringIO("a b.txt\n\n  \nhttps://example.com\r\n"))
+    rec = Recorder()
+    code = main(["-"], runner=rec, platform=MACOS, which=which_only(), cwd=str(tmp_path))
+    assert code == 0
+    assert rec.calls == [["open", str(tmp_path / "a b.txt")], ["open", "https://example.com"]]
+
+
+def test_stdin_targets_keep_their_place(monkeypatch):
+    monkeypatch.setattr(sys, "stdin", io.StringIO("https://b.example\n"))
+    rec = Recorder()
+    main(["https://a.example", "-", "https://c.example"], runner=rec, platform=MACOS, which=which_only())
+    assert [argv[1] for argv in rec.calls] == ["https://a.example", "https://b.example", "https://c.example"]
+
+
+def test_empty_stdin_opens_nothing(monkeypatch):
+    monkeypatch.setattr(sys, "stdin", io.StringIO(""))
+    rec = Recorder()
+    assert main(["-"], runner=rec, platform=MACOS, which=which_only()) == 0
+    assert rec.calls == []
