@@ -32,7 +32,10 @@ anyopen --dry-run report.pdf         # print the command, run nothing (-n)
 
 Paths are expanded (`~`) and made absolute, and must exist. `file://` URLs are turned
 into paths. Anything else that looks like a URL (`https:`, `mailto:`, `vscode:`, ...)
-is passed to the opener as it is.
+is passed to the opener as it is. A bare domain such as `example.com` or
+`github.com/landry-some` is opened as `https://...` when no file or folder of that
+name exists (only for common endings like `.com`, `.org`, `.io`, `.dev`, `.uk`, so a
+missing `notes.txt` is still reported as missing).
 
 If one target fails, the others are still opened and `anyopen` exits with 1.
 `--with` and `--reveal` can't be combined.

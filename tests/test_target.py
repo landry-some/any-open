@@ -71,3 +71,24 @@ def test_windows_drive_letter_is_not_a_url():
     # One-letter "schemes" are drive letters, so this is checked as a path.
     with pytest.raises(TargetError):
         normalize("C:\\no\\such\\file", exists=never)
+
+
+@pytest.mark.parametrize("raw", [
+    "example.com",
+    "www.example.org/a/b?c=1",
+    "docs.python.co.uk",
+    "GitHub.COM/landry-some",
+])
+def test_bare_domain_becomes_https_url(raw):
+    assert normalize(raw, exists=never) == Target("https://" + raw, True)
+
+
+def test_existing_file_wins_over_domain(tmp_path):
+    (tmp_path / "example.com").write_text("x")
+    assert normalize("example.com", cwd=str(tmp_path)) == Target(str(tmp_path / "example.com"), False)
+
+
+@pytest.mark.parametrize("raw", ["notes.txt", "report.pdf", "localhost", "a/b.com", "-x.com", "example.c0m"])
+def test_missing_file_like_names_stay_path_errors(raw):
+    with pytest.raises(TargetError, match="no such file or folder"):
+        normalize(raw, exists=never)
