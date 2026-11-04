@@ -53,6 +53,10 @@ If one target fails, the others are still opened and `anyopen` exits with 1.
 | Windows | `cmd /c start "" T` | `cmd /c start "" APP T` | `explorer /select,T` |
 | WSL | `wslview T`, or `explorer.exe T` | `cmd.exe /c start "" APP T` | `explorer.exe /select,T` |
 
+On Linux without `xdg-open` or `gio`, `anyopen` says which package to install. If
+there's no graphical session either (`DISPLAY` and `WAYLAND_DISPLAY` unset, as over
+SSH or in a container), it adds a hint to use `--dry-run` or `--with APP` instead.
+
 On WSL, paths given to Windows programs are converted with `wslpath -w` first.
 `wslview` (from wslu) takes Linux paths itself. WSL is detected from the
 `WSL_DISTRO_NAME`/`WSL_INTEROP` variables or the kernel release string.

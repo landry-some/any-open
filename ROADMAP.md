@@ -22,7 +22,7 @@
 
 - [ ] Quoting of paths with spaces, `&` and `^` when going through `cmd /c start` (~2.5 h)
 - [ ] WSL paths that only exist on the Linux side (`\\wsl$\...`) (~2 h)
-- [ ] Headless Linux with no opener installed: clear message and hint (~1 h)
+- [x] Headless Linux with no opener installed: clear message and hint (~1 h)
 - [x] Bare domains such as `example.com` treated as URLs when no such file exists (~1 h)
 
 ### Refactors

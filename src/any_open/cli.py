@@ -1,14 +1,15 @@
 """Command-line entry point for anyopen."""
 
 import argparse
+import os
 import shlex
 import shutil
 import subprocess
 import sys
 
 from . import __version__
-from .detect import WINDOWS, detect_platform
-from .plan import PlanError, build_command
+from .detect import LINUX, WINDOWS, detect_platform
+from .plan import NoOpenerError, PlanError, build_command
 from .target import TargetError, normalize
 
 
@@ -67,13 +68,27 @@ def format_command(command, platform):
     return shlex.join(command.argv)
 
 
-def open_one(raw, args, platform, runner, which, winpath, cwd):
+def headless_hint(platform, environ):
+    """Return a hint for when no opener was found, or None."""
+    if platform != LINUX or environ.get("DISPLAY") or environ.get("WAYLAND_DISPLAY"):
+        return None
+    return (
+        "anyopen: hint: no graphical session either (DISPLAY and WAYLAND_DISPLAY are unset), "
+        "so there may be nothing to open things in; use --dry-run to print the command "
+        "or --with APP to run a program directly"
+    )
+
+
+def open_one(raw, args, platform, runner, which, winpath, cwd, environ):
     """Open one target. Return True if it worked."""
     try:
         target = normalize(raw, cwd=cwd)
         command = build_command(platform, target, which, winpath, app=args.app, reveal=args.reveal)
     except (PlanError, TargetError) as e:
         print(f"anyopen: {e}", file=sys.stderr)
+        hint = headless_hint(platform, environ) if isinstance(e, NoOpenerError) else None
+        if hint:
+            print(hint, file=sys.stderr)
         return False
     if args.dry_run:
         print(format_command(command, platform))
@@ -101,14 +116,17 @@ def expand_stdin(targets, stdin):
     return out
 
 
-def main(argv=None, runner=run, platform=None, which=shutil.which, winpath=wslpath, cwd=None):
+def main(argv=None, runner=run, platform=None, which=shutil.which, winpath=wslpath, cwd=None,
+         environ=None):
     args = make_parser().parse_args(argv)
     if platform is None:
         platform = detect_platform()
+    if environ is None:
+        environ = os.environ
     ok = True
     for raw in expand_stdin(args.targets, sys.stdin):
         # Keep going after a failure so one bad target doesn't block the rest.
-        if not open_one(raw, args, platform, runner, which, winpath, cwd):
+        if not open_one(raw, args, platform, runner, which, winpath, cwd, environ):
             ok = False
     return 0 if ok else 1
 

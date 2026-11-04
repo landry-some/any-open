@@ -191,3 +191,26 @@ def test_empty_stdin_opens_nothing(monkeypatch):
     rec = Recorder()
     assert main(["-"], runner=rec, platform=MACOS, which=which_only()) == 0
     assert rec.calls == []
+
+
+def test_headless_linux_without_opener_gets_a_hint(capsys):
+    code = main(["https://example.com"], runner=Recorder(), platform=LINUX, which=which_only(), environ={})
+    assert code == 1
+    err = capsys.readouterr().err.splitlines()
+    assert err[0].startswith("anyopen: no opener found")
+    assert "no graphical session" in err[1]
+    assert "--dry-run" in err[1]
+
+
+@pytest.mark.parametrize("env", [{"DISPLAY": ":0"}, {"WAYLAND_DISPLAY": "wayland-0"}])
+def test_desktop_linux_without_opener_gets_no_hint(env, capsys):
+    assert main(["https://example.com"], runner=Recorder(), platform=LINUX, which=which_only(), environ=env) == 1
+    err = capsys.readouterr().err
+    assert "no opener found" in err
+    assert "hint" not in err
+
+
+def test_headless_hint_only_for_missing_opener(tmp_path, capsys):
+    assert main(["nope"], runner=Recorder(), platform=LINUX, which=which_only("xdg-open"),
+                cwd=str(tmp_path), environ={}) == 1
+    assert "hint" not in capsys.readouterr().err
