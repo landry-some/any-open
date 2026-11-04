@@ -29,6 +29,7 @@ anyopen --with gedit notes.txt       # open in a chosen app (-w)
 anyopen --reveal ~/Downloads/a.pdf   # show it in the file manager (-r)
 anyopen --dry-run report.pdf         # print the command, run nothing (-n)
 ls *.pdf | anyopen -                 # read targets from stdin, one per line
+anyopen --print-opener               # show the platform and openers found on PATH
 ```
 
 Paths are expanded (`~`) and made absolute, and must exist. `file://` URLs are turned

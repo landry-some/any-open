@@ -16,7 +16,7 @@
 - [ ] Linux `--reveal` that selects the file through the D-Bus FileManager1 interface (~3 h)
 - [ ] `--wait` to block until the app closes, where the platform supports it (~2 h)
 - [x] Read targets from stdin, one per line (~1.5 h)
-- [ ] `--print-opener` diagnostics: detected platform and the commands found on PATH (~1.5 h)
+- [x] `--print-opener` diagnostics: detected platform and the commands found on PATH (~1.5 h)
 
 ### Bugs and edge cases
 

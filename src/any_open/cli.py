@@ -8,8 +8,8 @@ import subprocess
 import sys
 
 from . import __version__
-from .detect import LINUX, WINDOWS, detect_platform
-from .plan import NoOpenerError, PlanError, build_command
+from .detect import LINUX, MACOS, WINDOWS, WSL, detect_platform
+from .plan import NoOpenerError, PlanError, build_command, resolve_opener
 from .target import TargetError, normalize
 
 
@@ -42,7 +42,7 @@ def make_parser():
         description="Open files, folders and URLs in their default application.",
     )
     p.add_argument(
-        "targets", nargs="+", metavar="TARGET",
+        "targets", nargs="*", metavar="TARGET",
         help="file, folder or URL to open; - reads targets from stdin, one per line",
     )
     how = p.add_mutually_exclusive_group()
@@ -58,6 +58,10 @@ def make_parser():
         "-n", "--dry-run", action="store_true",
         help="print the command for each target instead of running it",
     )
+    p.add_argument(
+        "--print-opener", action="store_true",
+        help="show the detected platform and which opener commands are on PATH, then exit",
+    )
     p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     return p
 
@@ -66,6 +70,26 @@ def format_command(command, platform):
     if platform == WINDOWS:
         return subprocess.list2cmdline(command.argv)
     return shlex.join(command.argv)
+
+
+# The programs anyopen may call on each platform, for --print-opener.
+PROGRAMS = {
+    MACOS: ["open"],
+    LINUX: ["xdg-open", "gio"],
+    WINDOWS: ["cmd", "explorer"],
+    WSL: ["wslview", "explorer.exe", "cmd.exe", "wslpath"],
+}
+
+
+def print_opener(platform, which):
+    print(f"platform: {platform}")
+    try:
+        opener = shlex.join(resolve_opener(platform, which))
+    except NoOpenerError:
+        opener = "none found"
+    print(f"opener: {opener}")
+    for name in PROGRAMS[platform]:
+        print(f"{name}: {which(name) or 'not found'}")
 
 
 def headless_hint(platform, environ):
@@ -118,9 +142,17 @@ def expand_stdin(targets, stdin):
 
 def main(argv=None, runner=run, platform=None, which=shutil.which, winpath=wslpath, cwd=None,
          environ=None):
-    args = make_parser().parse_args(argv)
+    parser = make_parser()
+    args = parser.parse_args(argv)
+    if args.print_opener and args.targets:
+        parser.error("--print-opener takes no targets")
+    if not args.print_opener and not args.targets:
+        parser.error("the following arguments are required: TARGET")
     if platform is None:
         platform = detect_platform()
+    if args.print_opener:
+        print_opener(platform, which)
+        return 0
     if environ is None:
         environ = os.environ
     ok = True

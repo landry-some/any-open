@@ -214,3 +214,33 @@ def test_headless_hint_only_for_missing_opener(tmp_path, capsys):
     assert main(["nope"], runner=Recorder(), platform=LINUX, which=which_only("xdg-open"),
                 cwd=str(tmp_path), environ={}) == 1
     assert "hint" not in capsys.readouterr().err
+
+
+def test_print_opener_linux(capsys):
+    assert main(["--print-opener"], platform=LINUX, which=which_only("gio")) == 0
+    assert capsys.readouterr().out.splitlines() == [
+        "platform: linux",
+        "opener: gio open",
+        "xdg-open: not found",
+        "gio: /usr/bin/gio",
+    ]
+
+
+def test_print_opener_without_any_opener(capsys):
+    assert main(["--print-opener"], platform=LINUX, which=which_only()) == 0
+    assert "opener: none found" in capsys.readouterr().out
+
+
+def test_print_opener_wsl_lists_windows_tools(capsys):
+    assert main(["--print-opener"], platform=WSL, which=which_only("wslpath", "explorer.exe")) == 0
+    out = capsys.readouterr().out.splitlines()
+    assert out[:2] == ["platform: wsl", "opener: explorer.exe"]
+    assert "wslview: not found" in out
+    assert "wslpath: /usr/bin/wslpath" in out
+
+
+def test_print_opener_takes_no_targets(capsys):
+    with pytest.raises(SystemExit) as exc:
+        main(["--print-opener", "a"], platform=MACOS, which=which_only())
+    assert exc.value.code == 2
+    assert "takes no targets" in capsys.readouterr().err
